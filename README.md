@@ -1,13 +1,3 @@
-# exam/
-├─ server.js
-├─ database
-└─ public/
-├─ index.html Vieša paieška + rezervacijos
-├─ login.html Prisijungimas
-├─ register.html Registracija
-└─ admin.html Admin panel (kategorijos + knygos)
-
-
 ## Diegimas
 
 1. Paleisti MySQL ir importuoti `database.sql`:
