@@ -1,15 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Prisijungimas</title>
-</head>
 <body>
-<h1>Prisijungti</h1>
+<h1>Login</h1>
 <form method="POST" action="/login">
-    <input type="text" name="username" placeholder="Vartotojo vardas" required><br>
-    <input type="password" name="password" placeholder="Slaptažodis" required><br>
-    <button type="submit">Prisijungti</button>
+  <input type="text" name="username" placeholder="Vardas" required><br>
+  <input type="password" name="password" placeholder="Slaptažodis" required><br>
+  <button type="submit">Prisijungti</button>
 </form>
-<a href="register.html">Registracija</a>
+<hr>
+<button onclick="location.href='register.html'">Registruotis</button>
+<button onclick="location.href='index.html'">Vieša paieška</button>
 </body>
-</html>

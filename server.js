@@ -7,81 +7,86 @@ const path = require('path');
 
 const app = express();
 
-// Middleware
-app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 app.use(session({ secret: 'secretkey', resave: false, saveUninitialized: true }));
-app.use(express.static(path.join(__dirname, 'public'))); // public katalogas
+app.use(express.static(path.join(__dirname, 'public')));
 
-// MySQL jungtis
+// DB
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',      
-    password: '',      
-    database: 'library'
+    host:'localhost',
+    user:'root',
+    password:'',
+    database:'library'
 });
+db.connect(err=>{ if(err) throw err; console.log('DB connected'); });
 
-db.connect(err => {
-    if(err) throw err;
-    console.log('MySQL connected');
-});
+// Auth middleware
 function isAuth(req,res,next){
     if(req.session.user) next();
     else res.redirect('/login.html');
 }
 
-// Registracija
-app.post('/register', async (req,res)=>{
+// LOGIN
+app.post('/login', async (req,res)=>{
     const {username,password} = req.body;
-    const hash = await bcrypt.hash(password,10);
-    db.query('INSERT INTO users (username,password,role) VALUES (?,?,?)',[username,hash,'user'], (err,result)=>{
-        if(err) return res.status(400).send(err);
-        res.send('Registered');
+    const [users] = await db.promise().query('SELECT * FROM users WHERE username=?',[username]);
+    if(users.length===0) return res.send('User not found');
+    const match = await bcrypt.compare(password,users[0].password);
+    if(!match) return res.send('Wrong password');
+    req.session.user = {id: users[0].id, role: users[0].role};
+    res.redirect('/admin.html');
+});
+
+// LOGOUT
+app.post('/logout',(req,res)=>{
+    req.session.destroy(()=>res.redirect('/login.html'));
+});
+
+// CATEGORIES
+app.get('/categories',(req,res)=>{
+    db.query('SELECT * FROM categories',(err,rows)=>{ if(err) return res.status(400).send(err); res.json(rows); });
+});
+
+app.post('/categories', isAuth, (req,res)=>{
+    if(req.session.user.role!=='admin') return res.sendStatus(403);
+    const {name} = req.body;
+    db.query('INSERT INTO categories (name) VALUES (?)',[name],(err,result)=>{
+        if(err) return res.status(400).send(err.message);
+        res.send('Category added');
     });
 });
 
-// Prisijungimas
-app.post('/login', (req,res)=>{
-    const {username,password} = req.body;
-    db.query('SELECT * FROM users WHERE username=?',[username], async (err,results)=>{
-        if(err) return res.status(400).send(err);
-        if(results.length === 0) return res.status(400).send('User not found');
-        const match = await bcrypt.compare(password, results[0].password);
-        if(match){
-            req.session.user = {id: results[0].id, role: results[0].role};
-            res.redirect('/admin.html');  // nukreipia į public/admin.html
-        } else res.status(400).send('Wrong password');
-    });
+// BOOKS
+app.get('/books',(req,res)=>{
+    db.query(`SELECT books.id, books.title, books.author, categories.name AS category
+              FROM books LEFT JOIN categories ON books.category_id = categories.id`,
+              (err,rows)=>{ if(err) return res.status(400).send(err); res.json(rows); });
 });
 
-// Admin panelis (tik prisijungus)
-app.get('/admin', isAuth, (req,res)=>{
-    res.sendFile(path.join(__dirname,'public','admin.html'));
-});
-
-// Nauja knyga (admin)
-app.post('/books', isAuth,(req,res)=>{
-    if(req.session.user.role !== 'admin') return res.status(403).send('No access');
+app.post('/books', isAuth, (req,res)=>{
+    if(req.session.user.role!=='admin') return res.sendStatus(403);
     const {title,author,category_id} = req.body;
     db.query('INSERT INTO books (title,author,category_id) VALUES (?,?,?)',
-        [title,author,category_id], 
-        (err,result)=>{
-            if(err) return res.status(400).send(err);
-            res.redirect('/admin.html');
-    });
+        [title,author,category_id||null],(err,result)=>{
+            if(err) return res.status(400).send(err.message);
+            res.send('Book added');
+        });
 });
 
-// Vieša knygų paieška
-app.get('/books', (req,res)=>{
-    const {category,search} = req.query;
-    let sql = 'SELECT books.id,title,author,name as category FROM books LEFT JOIN categories ON books.category_id = categories.id WHERE 1';
-    const params = [];
-    if(category){ sql += ' AND categories.id=?'; params.push(category); }
-    if(search){ sql += ' AND title LIKE ?'; params.push(`%${search}%`); }
-    db.query(sql, params, (err,results)=>{ 
-        if(err) return res.status(400).send(err); 
-        res.json(results); 
-    });
+// RESERVE
+app.post('/reserve', isAuth, (req,res)=>{
+    const {book_id} = req.body;
+    if(!book_id) return res.status(400).send('Book ID required');
+    const start = new Date();
+    const end = new Date();
+    end.setDate(end.getDate()+14);
+    db.query('CREATE TABLE IF NOT EXISTS reservations (id INT AUTO_INCREMENT PRIMARY KEY,user_id INT,book_id INT,start_date DATE,end_date DATE,extensions INT DEFAULT 0)',()=>{});
+    db.query('INSERT INTO reservations (user_id,book_id,start_date,end_date) VALUES (?,?,?,?)',
+        [req.session.user.id, book_id, start, end],(err,result)=>{
+            if(err) return res.status(400).send(err.message);
+            res.send('Book reserved');
+        });
 });
 
-app.listen(3000,()=>console.log('Server running on http://localhost:3000'));
+app.listen(3000, ()=>console.log('Server running on http://localhost:3000'));

@@ -1,14 +1,33 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Biblioteka</title>
-</head>
+<head><title>Vieša paieška</title></head>
 <body>
 <h1>Knygų paieška</h1>
-<input type="text" id="search" placeholder="Ieškok knygos">
-<button onclick="search()">Ieškoti</button>
-<ul id="books"></ul>
+<input type="text" id="search" placeholder="Paieška">
+<button onclick="searchBooks()">Ieškoti</button>
+<hr>
+<ul id="results"></ul>
 
-<script src="script.js"></script>
+<script>
+async function searchBooks(){
+    const search = document.getElementById('search').value;
+    const res = await fetch(`/books?search=${encodeURIComponent(search)}`);
+    const books = await res.json();
+    const ul = document.getElementById('results');
+    ul.innerHTML = '';
+    books.forEach(b=>{
+        const li = document.createElement('li');
+        li.innerHTML = `${b.title} – ${b.author} [${b.category||'Nėra'}] `;
+        const btn = document.createElement('button');
+        btn.textContent = 'Rezervuoti';
+        btn.onclick = async ()=>{
+            const r = await fetch('/reserve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({book_id:b.id})});
+            alert(await r.text());
+        };
+        li.appendChild(btn);
+        ul.appendChild(li);
+    });
+}
+</script>
 </body>
 </html>

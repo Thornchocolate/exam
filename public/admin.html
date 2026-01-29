@@ -1,0 +1,57 @@
+<body>
+<h1>Admin Panel</h1>
+
+<!-- NAVIGATION -->
+<nav>
+  <button onclick="location.href='index.html'">Vieša paieška</button>
+  <button onclick="location.href='admin.html'">Admin Meniu</button>
+  <button onclick="logout()">Logout</button>
+</nav>
+<hr>
+
+<!-- Kategorijų ir knygų formos čia -->
+<h3>Pridėti kategoriją</h3>
+<form id="categoryForm">
+  <input type="text" name="name" required>
+  <button type="submit">Pridėti</button>
+</form>
+
+<h3>Pridėti knygą</h3>
+<form id="bookForm">
+  <input type="text" name="title" placeholder="Knygos pavadinimas" required><br>
+  <input type="text" name="author" placeholder="Autorius" required><br>
+  <select name="category_id" id="categorySelect"></select><br>
+  <button type="submit">Pridėti knygą</button>
+</form>
+
+<script>
+function logout(){
+  fetch('/logout',{method:'POST'}).then(()=>window.location.href='login.html');
+}
+
+// Formos submit logika (kaip anksčiau)
+async function fetchCategories(){
+    const res = await fetch('/categories');
+    const cats = await res.json();
+    const sel = document.getElementById('categorySelect');
+    sel.innerHTML = '<option value="">--Pasirinkite--</option>';
+    cats.forEach(c=>sel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+}
+document.getElementById('categoryForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const data = new URLSearchParams(new FormData(e.target));
+    const res = await fetch('/categories',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data.toString()});
+    alert(await res.text());
+    e.target.reset();
+    fetchCategories();
+});
+document.getElementById('bookForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const data = new URLSearchParams(new FormData(e.target));
+    const res = await fetch('/books',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data.toString()});
+    alert(await res.text());
+    e.target.reset();
+});
+fetchCategories();
+</script>
+</body>
